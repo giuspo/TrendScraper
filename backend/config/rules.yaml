@@ -1,0 +1,53 @@
+# Rules Engine Configuration for SGTech TrendRadar
+
+profiles:
+  default:
+    # --- Limiti Dimensionali e Logistici FBA ---
+    max_weight_grams: 800
+    max_dimensions_cm: [35, 25, 12]
+
+    # --- Conformità Elettrica e Batterie ---
+    allow_220v_ac: false
+    max_battery_mah: 500  # Impostare a 0 per escludere qualsiasi batteria
+
+    # --- Economics ---
+    min_net_margin_percent: 20
+
+    # --- Categorie Escluse (Banned Keywords) ---
+    banned_keywords:
+      - liquido
+      - liquid
+      - crema
+      - cream
+      - polvere
+      - powder
+      - spray
+      - cosmetico
+      - cosmetics
+      - makeup
+      - giocattolo
+      - toy
+      - bambino
+      - baby
+      - food
+      - cibo
+      - integratore
+      - supplement
+      - magnet
+      - magnetico # a volte problematici per spedizioni aeree
+
+  tech_leggero:
+    max_weight_grams: 300
+    max_dimensions_cm: [20, 15, 5]
+    allow_220v_ac: false
+    max_battery_mah: 0
+    min_net_margin_percent: 25
+    banned_keywords: ["liquido", "crema", "polvere", "giocattolo", "food"]
+
+  senza_limiti:
+    max_weight_grams: 5000
+    max_dimensions_cm: [100, 100, 100]
+    allow_220v_ac: true
+    max_battery_mah: 10000
+    min_net_margin_percent: 15
+    banned_keywords: []
