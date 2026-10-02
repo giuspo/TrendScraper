@@ -1,0 +1,16 @@
+{
+    "set tazze colazione grandi": {
+        "timestamp": "2026-10-02T22:03:20.231543",
+        "data": {
+            "trend_score": 0.0,
+            "is_breakout": false
+        }
+    },
+    "kit tazze per cartongesso": {
+        "timestamp": "2026-10-02T22:03:26.030636",
+        "data": {
+            "trend_score": 0.0,
+            "is_breakout": false
+        }
+    }
+}

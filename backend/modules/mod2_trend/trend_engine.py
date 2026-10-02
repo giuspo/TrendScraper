@@ -1,5 +1,8 @@
 ﻿import logging
 import time
+import json
+import os
+from datetime import datetime, timedelta
 from typing import Dict, Any
 from curl_cffi import requests
 
@@ -9,12 +12,47 @@ logger = logging.getLogger(__name__)
 class TrendEngine:
     def __init__(self, geo: str = "IT"):
         self.geo = geo
-        # Sostituire pytrends con la API Key di SerpApi fornita dall'utente
-        self.api_key = "7986c654ac1aded6bb379b04a2ff4d21dd55ba45b10689d9a60e5b1cc38d31d8"
+        self.api_key = os.environ.get("SERPAPI_KEY", "")
+        if not self.api_key:
+            logger.error("API KEY MANCANTE! Inseriscila nel file .env alla voce SERPAPI_KEY")
         self.base_url = "https://serpapi.com/search.json"
+        self.account_url = "https://serpapi.com/account.json"
+        
+        # Setup Cache
+        self.cache_file = os.path.join(os.path.dirname(__file__), "trends_cache.json")
+        self.cache_ttl_days = 7
+        self.cache = self._load_cache()
+
+    def _load_cache(self) -> dict:
+        """Carica la cache da file."""
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.error(f"Errore lettura cache: {e}")
+        return {}
+
+    def _save_cache(self):
+        """Salva la cache su file."""
+        try:
+            with open(self.cache_file, "w", encoding="utf-8") as f:
+                json.dump(self.cache, f, indent=4)
+        except Exception as e:
+            logger.error(f"Errore salvataggio cache: {e}")
+
+    def get_remaining_credits(self) -> int:
+        """Restituisce il numero esatto di chiamate gratuite rimaste su SerpApi."""
+        try:
+            resp = requests.get(f"{self.account_url}?api_key={self.api_key}", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("total_searches_left", 0)
+        except Exception as e:
+            logger.warning(f"Impossibile verificare crediti API: {e}")
+        return 999 # Fallback in caso di errore di rete
 
     def _query_trends(self, keyword: str) -> dict:
-        """Interroga Google Trends in modo professionale tramite SerpApi."""
         params = {
             "engine": "google_trends",
             "q": keyword,
@@ -40,7 +78,6 @@ class TrendEngine:
         if not timeline:
             return {}
             
-        # Estraiamo i valori (da 0 a 100) per ogni giorno
         values = []
         for point in timeline:
             if "values" in point and len(point["values"]) > 0:
@@ -50,31 +87,49 @@ class TrendEngine:
         if not values:
             return {}
             
-        # Prendiamo gli ultimi 14 giorni
         recent_values = values[-14:]
         avg_score = sum(recent_values) / len(recent_values)
-        
-        # Breakout: se l'ultimo valore è > 1.5x della media
         is_breakout = values[-1] > (avg_score * 1.5)
         
         return {"trend_score": round(avg_score, 2), "is_breakout": is_breakout}
 
     def evaluate_keyword(self, keyword: str, max_retries: int = 3) -> dict:
-        """
-        Valuta il trend di una keyword su Google Trends via SerpApi.
-        Essendo un'API pro, non servono trucchetti come accorciare la keyword.
-        """
+        """Valuta il trend usando cache locale e controllo limiti API."""
+        
+        # 1. Controllo CACHE
+        now = datetime.now().isoformat()
+        if keyword in self.cache:
+            entry = self.cache[keyword]
+            cached_date = datetime.fromisoformat(entry["timestamp"])
+            if datetime.now() - cached_date < timedelta(days=self.cache_ttl_days):
+                logger.info(f"Trend per '{keyword}' recuperato dalla CACHE (Risparmiata 1 chiamata API!)")
+                return entry["data"]
+        
+        # 2. API Call (solo se non in cache)
         for attempt in range(1, max_retries + 1):
             try:
                 result = self._query_trends(keyword)
                 if result:
+                    # Salva in cache
+                    self.cache[keyword] = {
+                        "timestamp": now,
+                        "data": result
+                    }
+                    self.save_required = True
                     return result
                 else:
                     logger.warning(f"Nessun dato Trends su SerpApi per '{keyword}'.")
-                    return {"trend_score": 0.0, "is_breakout": False}
+                    # Salviamo in cache anche lo ZERO, cosi non sprechiamo API per ri-controllare i fallimenti
+                    self.cache[keyword] = {"timestamp": now, "data": {"trend_score": 0.0, "is_breakout": False}}
+                    self.save_required = True
+                    return self.cache[keyword]["data"]
             except Exception as e:
                 logger.error(f"Errore imprevisto su '{keyword}': {e}")
                 if attempt < max_retries:
                     time.sleep(2)
 
         return {"trend_score": 0.0, "is_breakout": False}
+        
+    def __del__(self):
+        if getattr(self, 'save_required', False):
+            self._save_cache()

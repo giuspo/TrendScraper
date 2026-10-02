@@ -1,5 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 import sys
+from dotenv import load_dotenv
+load_dotenv()
+
 import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
@@ -43,6 +46,12 @@ def scan(
         return
         
     console.print(f"\n[yellow]Fase 2: Validazione Google Trends per {min(len(candidates), limit)} candidati...[/yellow]")
+    trend_engine = TrendEngine()
+    credits_left = trend_engine.get_remaining_credits()
+    console.print(f" -> [bold yellow]Crediti SerpApi Rimasti:[/bold yellow] [bold green]{credits_left}[/bold green]")
+    if credits_left <= 10:
+        console.print("[bold red]Operazione annullata per crediti insufficienti (rimasti <= 10).[/bold red]")
+        raise typer.Exit(1)
     trend_engine = TrendEngine()
     valid_candidates = []
     for i, c in enumerate(candidates[:limit]):
