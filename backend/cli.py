@@ -48,8 +48,8 @@ def scan(
     console.print(f"\n[yellow]Fase 2: Validazione Google Trends per {min(len(candidates), limit)} candidati...[/yellow]")
     trend_engine = TrendEngine()
     credits_left = trend_engine.get_remaining_credits()
-    console.print(f" -> [bold yellow]Crediti SerpApi Rimasti:[/bold yellow] [bold green]{credits_left}[/bold green]")
-    if credits_left <= 10:
+    console.print(f" -> [bold yellow]Crediti SerpApi Rimasti:[/bold yellow] [bold green]{credits_left if credits_left is not None else "non verificabile"}[/bold green]")
+    if credits_left is None or credits_left <= 10:
         console.print("[bold red]Operazione annullata per crediti insufficienti (rimasti <= 10).[/bold red]")
         raise typer.Exit(1)
     trend_engine = TrendEngine()

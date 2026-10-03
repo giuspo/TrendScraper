@@ -5,6 +5,10 @@ import os
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from curl_cffi import requests
+from dotenv import load_dotenv
+
+# Carica il .env dalla radice del progetto, indipendentemente da dove parte l'app
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '..', '.env'))
 
 logger = logging.getLogger(__name__)
 
@@ -41,16 +45,16 @@ class TrendEngine:
         except Exception as e:
             logger.error(f"Errore salvataggio cache: {e}")
 
-    def get_remaining_credits(self) -> int:
-        """Restituisce il numero esatto di chiamate gratuite rimaste su SerpApi."""
+    def get_remaining_credits(self):
+        """Crediti SerpApi rimasti (int), oppure None se non verificabili (mai un numero inventato)."""
         try:
             resp = requests.get(f"{self.account_url}?api_key={self.api_key}", timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                return data.get("total_searches_left", 0)
+                return data.get("total_searches_left")
         except Exception as e:
             logger.warning(f"Impossibile verificare crediti API: {e}")
-        return 999 # Fallback in caso di errore di rete
+        return None
 
     def _query_trends(self, keyword: str) -> dict:
         params = {
